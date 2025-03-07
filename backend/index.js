@@ -8,35 +8,129 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Temporary storage (use MongoDB later)
-let inviteCodes = {
-  "126784362": { storageLimit: 2 * 1024 * 1024 * 1024, used: 0, expires: null },
-};
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("MongoDB connected"))
+    .catch(err => console.log(err));
 
-// Middleware to check invite codes
-app.use("/upload", (req, res, next) => {
-  const { code } = req.body;
-  if (!inviteCodes[code]) return res.status(403).json({ error: "Invalid code" });
-  next();
+// Invite Code Schema
+const InviteSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true },
+    storageLimit: { type: Number, required: true }, // in bytes
+    used: { type: Number, default: 0 }, // Used storage in bytes
+    expires: { type: Date, default: null } // Expiry date for temp codes
+});
+const Invite = mongoose.model("Invite", InviteSchema);
+
+// File Schema
+const FileSchema = new mongoose.Schema({
+    name: String,
+    url: String,
+    size: Number,
+    uploadedBy: String,
+    expiry: Date, // Optional expiry date
+    password: String // Optional password protection
+});
+const File = mongoose.model("File", FileSchema);
+
+/* ==========================
+   ✅ Check Storage API
+   ========================== */
+app.get("/storage/:code", async (req, res) => {
+    const invite = await Invite.findOne({ code: req.params.code });
+    if (!invite) return res.status(404).json({ error: "Invalid code" });
+
+    // Auto-delete expired codes
+    if (invite.expires && new Date() > invite.expires) {
+        await Invite.deleteOne({ code: req.params.code });
+        return res.status(404).json({ error: "Code expired" });
+    }
+
+    res.json(invite);
 });
 
-// Upload endpoint (replace with Chibisafe API integration)
-app.post("/upload", (req, res) => {
-  const { code, fileSize } = req.body;
-  if (inviteCodes[code].used + fileSize > inviteCodes[code].storageLimit) {
-    return res.status(403).json({ error: "Storage limit exceeded" });
-  }
-  inviteCodes[code].used += fileSize;
-  res.json({ message: "File uploaded successfully" });
+/* ==========================
+   ✅ Upload File API (Verifies Code & Bandwidth)
+   ========================== */
+app.post("/upload", async (req, res) => {
+    const { code, fileSize, fileName, fileUrl } = req.body;
+    const invite = await Invite.findOne({ code });
+
+    if (!invite) return res.status(403).json({ error: "Invalid code" });
+    if (invite.used + fileSize > invite.storageLimit) {
+        return res.status(403).json({ error: "Storage limit exceeded" });
+    }
+
+    // Save file info in DB
+    const file = new File({ name: fileName, url: fileUrl, size: fileSize, uploadedBy: code });
+    await file.save();
+
+    // Update used storage
+    invite.used += fileSize;
+    await invite.save();
+
+    res.json({ message: "File uploaded successfully" });
 });
 
-// Get user storage info
-app.get("/storage/:code", (req, res) => {
-  const code = req.params.code;
-  if (!inviteCodes[code]) return res.status(404).json({ error: "Invalid code" });
-  res.json(inviteCodes[code]);
+/* ==========================
+   ✅ Fetch User Files API
+   ========================== */
+app.get("/files/:code", async (req, res) => {
+    const files = await File.find({ uploadedBy: req.params.code });
+    res.json(files);
 });
 
-// Start server
+/* ==========================
+   ✅ Download File API
+   ========================== */
+app.get("/download/:fileId", async (req, res) => {
+    const file = await File.findById(req.params.fileId);
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    res.redirect(file.url);
+});
+
+/* ==========================
+   ✅ Share File API (Returns Share Link)
+   ========================== */
+app.get("/share/:fileId", async (req, res) => {
+    const file = await File.findById(req.params.fileId);
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    res.json({ shareLink: file.url });
+});
+
+/* ==========================
+   ✅ Set File Expiry API
+   ========================== */
+app.post("/set-expiry", async (req, res) => {
+    const { fileId, days } = req.body;
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + days);
+
+    await File.findByIdAndUpdate(fileId, { expiry: expiryDate });
+
+    res.json({ message: `File will expire in ${days} days` });
+});
+
+/* ==========================
+   ✅ Delete File API
+   ========================== */
+app.delete("/delete/:fileId", async (req, res) => {
+    await File.findByIdAndDelete(req.params.fileId);
+    res.json({ message: "File deleted" });
+});
+
+/* ==========================
+   ✅ Auto-Delete Expired Files (Runs Every Hour)
+   ========================== */
+setInterval(async () => {
+    await File.deleteMany({ expiry: { $lt: new Date() } });
+    console.log("Expired files deleted");
+}, 3600000); // Runs every hour
+
+/* ==========================
+   ✅ Start Server
+   ========================== */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
