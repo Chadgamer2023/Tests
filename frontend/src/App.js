@@ -11,9 +11,9 @@ function App() {
 
   useEffect(() => {
     if (validCode) {
-      fetchFiles();
+        fetchFiles();
     }
-  }, [validCode]);
+}, [validCode, fetchFiles]);  // Add fetchFiles as a dependency
 
   const checkCode = async () => {
     try {
