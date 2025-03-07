@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "./index.css";
 
@@ -9,15 +9,26 @@ function App() {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
 
+  // ✅ Define fetchFiles before useEffect & wrap it in useCallback
+  const fetchFiles = useCallback(async () => {
+    if (!code) return;
+    try {
+      const response = await axios.get(`https://renderurl.onrender.com/files/${code}`);
+      setFiles(response.data);
+    } catch (error) {
+      console.error("Error fetching files:", error);
+    }
+  }, [code]);
+
   useEffect(() => {
     if (validCode) {
-        fetchFiles();
+      fetchFiles();
     }
-}, [validCode, fetchFiles]);  // Add fetchFiles as a dependency
+  }, [validCode, fetchFiles]); // ✅ Prevent infinite loop
 
   const checkCode = async () => {
     try {
-      const response = await axios.get(`https://backend-a590.onrender.com/storage/${code}`);
+      const response = await axios.get(`https://renderurl.onrender.com/storage/${code}`);
       setStorage(response.data);
       setValidCode(true);
       fetchFiles();
@@ -36,35 +47,30 @@ function App() {
     formData.append("file", file);
     formData.append("code", code);
 
-    await axios.post("https://backend-a590.onrender.com/upload", formData);
+    await axios.post("https://renderurl.onrender.com/upload", formData);
     alert("File uploaded!");
     setStorage({ ...storage, used: storage.used + fileSize });
     fetchFiles();
   };
 
-  const fetchFiles = async () => {
-    const response = await axios.get(`https://backend-a590.onrender.com/files/${code}`);
-    setFiles(response.data);
-  };
-
   const downloadFile = async (fileId) => {
-    window.open(`https://backend-a590.onrender.com/download/${fileId}`);
+    window.open(`https://renderurl.onrender.com/download/${fileId}`);
   };
 
   const shareFile = (fileId) => {
-    const link = `https://backend-a590.onrender.com/share/${fileId}`;
+    const link = `https://renderurl.onrender.com/share/${fileId}`;
     navigator.clipboard.writeText(link);
     alert("🔗 Link copied to clipboard!");
   };
 
   const deleteFile = async (fileId) => {
-    await axios.delete(`https://backend-a590.onrender.com/delete/${fileId}`);
+    await axios.delete(`https://renderurl.onrender.com/delete/${fileId}`);
     alert("File deleted!");
     fetchFiles();
   };
 
   const setFileExpiry = async (fileId, days) => {
-    await axios.post(`https://backend-a590.onrender.com/set-expiry`, { fileId, days });
+    await axios.post(`https://renderurl.onrender.com/set-expiry`, { fileId, days });
     alert(`Expiry set to ${days} days`);
     fetchFiles();
   };
@@ -86,9 +92,9 @@ function App() {
             </div>
             <nav>
               <ul>
-                <li className="active"><a href="#">Dashboard</a></li>
-                <li><a href="#">Settings</a></li>
-                <li><a href="#">Logout</a></li>
+                <li className="active"><a href="/#">Dashboard</a></li>
+                <li><a href="/#">Settings</a></li>
+                <li><a href="/#">Logout</a></li>
               </ul>
             </nav>
           </aside>
