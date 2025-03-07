@@ -1,17 +1,20 @@
 import { useState } from "react";
 import axios from "axios";
+import "./index.css"; // Import our plain CSS
 
 function App() {
   const [code, setCode] = useState("");
   const [validCode, setValidCode] = useState(false);
   const [storage, setStorage] = useState(null);
   const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
 
   const checkCode = async () => {
     try {
       const response = await axios.get(`https://your-backend-url.com/storage/${code}`);
       setStorage(response.data);
       setValidCode(true);
+      fetchFiles();
     } catch {
       alert("Invalid code!");
     }
@@ -22,26 +25,51 @@ function App() {
     const fileSize = file.size;
     if (storage.used + fileSize > storage.storageLimit) return alert("Storage limit exceeded!");
 
+    // Simulate an upload request
     await axios.post("https://your-backend-url.com/upload", { code, fileSize });
     alert("File uploaded!");
     setStorage({ ...storage, used: storage.used + fileSize });
+    fetchFiles();
+  };
+
+  const fetchFiles = async () => {
+    // Simulating fetching files (replace with actual API call)
+    setFiles([
+      { name: "example.png", size: "2MB" },
+      { name: "document.pdf", size: "1MB" },
+    ]);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+    <div className="container">
       {!validCode ? (
-        <div className="p-6 bg-gray-800 rounded-xl shadow-lg">
-          <h2 className="text-lg mb-4">Enter Invite Code</h2>
-          <input className="p-2 border rounded text-black" onChange={(e) => setCode(e.target.value)} />
-          <button className="mt-4 bg-blue-500 px-4 py-2 rounded" onClick={checkCode}>Submit</button>
-        </div>
+        <>
+          <h2>Enter Invite Code</h2>
+          <input type="text" placeholder="Enter code" onChange={(e) => setCode(e.target.value)} />
+          <button onClick={checkCode}>Submit</button>
+        </>
       ) : (
-        <div className="p-6 bg-gray-800 rounded-xl shadow-lg">
-          <h2 className="text-lg">Welcome! {code}</h2>
+        <>
+          <h2>Welcome!</h2>
           <p>Storage Used: {Math.round(storage.used / 1024 / 1024)} MB / {Math.round(storage.storageLimit / 1024 / 1024)} MB</p>
-          <input type="file" className="mt-4" onChange={(e) => setFile(e.target.files[0])} />
-          <button className="mt-4 bg-green-500 px-4 py-2 rounded" onClick={uploadFile}>Upload</button>
-        </div>
+
+          {/* File Upload Section */}
+          <div className="file-upload">
+            <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+          </div>
+          <button onClick={uploadFile}>Upload File</button>
+
+          {/* File List */}
+          <div className="file-list">
+            <h3>Your Files</h3>
+            {files.map((f, index) => (
+              <div key={index} className="file-item">
+                <span>{f.name}</span>
+                <span>{f.size}</span>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
