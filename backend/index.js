@@ -9,20 +9,41 @@ app.use(express.json());
 app.use(cors());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("MongoDB connected"))
-    .catch(err => console.log(err));
+const mongoose = require("mongoose");
 
-// Invite Code Schema
-const InviteSchema = new mongoose.Schema({
+
+mongoose.connect(process.env.MONGO_URI, {
+    dbName: "BSSS", // ✅ Explicitly setting the database name
+    useUnifiedTopology: true
+})
+    .then(() => console.log("✅ MongoDB connected to BSSS"))
+    .catch(err => console.error("❌ MongoDB Connection Error:", err));
+
+// Inactive Codes Schema (New Manually Added Codes)
+const InactiveCodeSchema = new mongoose.Schema({
     code: { type: String, required: true, unique: true },
-    storageLimit: { type: Number, required: true }, // in bytes
-    used: { type: Number, default: 0 }, // Used storage in bytes
-    expires: { type: Date, default: null } // Expiry date for temp codes
+    storageLimit: { type: Number, required: true } // in bytes
 });
-const Invite = mongoose.model("Invite", InviteSchema);
+const InactiveCode = mongoose.model("InactiveCode", InactiveCodeSchema, "InactiveCodes");
 
-// File Schema
+// Active Codes Schema (Activated Codes Used for Login)
+const ActiveCodeSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true },
+    storageLimit: { type: Number, required: true },
+    used: { type: Number, default: 0 }, // Used storage in bytes
+    activatedAt: { type: Date, default: Date.now } // When it was activated
+});
+const ActiveCode = mongoose.model("ActiveCode", ActiveCodeSchema, "ActiveCodes");
+
+// Temporary Codes Schema (Short-Term Codes with Expiry)
+const TempCodeSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true },
+    storageLimit: { type: Number, required: true },
+    expires: { type: Date, required: true } // Expiry date
+});
+const TempCode = mongoose.model("TempCode", TempCodeSchema, "TempCodes");
+
+// File Schema (No Changes)
 const FileSchema = new mongoose.Schema({
     name: String,
     url: String,
@@ -31,7 +52,9 @@ const FileSchema = new mongoose.Schema({
     expiry: Date, // Optional expiry date
     password: String // Optional password protection
 });
-const File = mongoose.model("File", FileSchema);
+const File = mongoose.model("File", FileSchema, "Files");
+
+module.exports = { InactiveCode, ActiveCode, TempCode, File };
 
 /* ==========================
    ✅ Check Storage API
