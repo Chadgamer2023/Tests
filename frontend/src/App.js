@@ -11,7 +11,7 @@ function App() {
 
   const checkCode = async () => {
     try {
-      const response = await axios.get(`https://your-backend-url.com/storage/${code}`);
+      const response = await axios.get(`https://backend-a590.onrender.comstorage/${code}`);
       setStorage(response.data);
       setValidCode(true);
       fetchFiles();
@@ -26,7 +26,7 @@ function App() {
     if (storage.used + fileSize > storage.storageLimit) return alert("Storage limit exceeded!");
 
     // Simulate an upload request
-    await axios.post("https://your-backend-url.com/upload", { code, fileSize });
+    await axios.post("https://backend-a590.onrender.comupload", { code, fileSize });
     alert("File uploaded!");
     setStorage({ ...storage, used: storage.used + fileSize });
     fetchFiles();
