@@ -8,6 +8,12 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+const corsOptions = {
+  origin: 'https://invictadeus.netlify.app',  // your Netlify frontend URL
+  methods: ['GET', 'POST', 'DELETE', 'PUT'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 mongoose.connect(process.env.MONGO_URI, {
     dbName: "BSSS", // ✅ Explicitly setting the database name
     useUnifiedTopology: true
